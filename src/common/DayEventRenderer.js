@@ -5,6 +5,7 @@ function DayEventRenderer() {
 	
 	// exports
 	t.renderDaySegs = renderDaySegs;
+	t.renderTempDaySegs = renderTempDaySegs;
 	t.resizableDayEvent = resizableDayEvent;
 	
 	
@@ -26,6 +27,7 @@ function DayEventRenderer() {
 	var colContentLeft = t.colContentLeft;
 	var colContentRight = t.colContentRight;
 	var dayOfWeekCol = t.dayOfWeekCol;
+	var timeOfDayCol = t.timeOfDayCol;
 	var dateCell = t.dateCell;
 	var compileDaySegs = t.compileDaySegs;
 	var getDaySegmentContainer = t.getDaySegmentContainer;
@@ -34,6 +36,7 @@ function DayEventRenderer() {
 	var renderDayOverlay = t.renderDayOverlay;
 	var clearOverlays = t.clearOverlays;
 	var clearSelection = t.clearSelection;
+	var getViewName = t.getViewName;
 	
 	
 	
@@ -93,6 +96,7 @@ function DayEventRenderer() {
 		var i;
 		var segCnt = segs.length;
 		var element;
+
 		tempContainer[0].innerHTML = daySegHTML(segs); // faster than .html()
 		elements = tempContainer.children();
 		segmentContainer.append(elements);
@@ -132,6 +136,8 @@ function DayEventRenderer() {
 		var right;
 		var skinCss;
 		var html = '';
+		var viewName = getViewName();
+		var weekends = opt('weekends'), weekendTestDate, weekendSumColStart, weekendSumColEnd;
 		// calculate desired position/dimensions, create html
 		for (i=0; i<segCnt; i++) {
 			seg = segs[i];
@@ -157,6 +163,67 @@ function DayEventRenderer() {
 				left = seg.isStart ? colContentLeft(leftCol) : minLeft;
 				right = seg.isEnd ? colContentRight(rightCol) : maxLeft;
 			}
+			
+			// TODO: better implementation for this one..
+			if (viewName == 'resourceMonth') {
+				// for resourceMonth view
+				leftCol = seg.start.getDate()-1;
+				rightCol = seg.end.getDate()-2;
+
+				if(!weekends) {
+					// Drop out weekends
+					weekendSumColStart=0	
+					weekendSumColEnd=0
+					
+					for(var j=0; j<=leftCol; j++) {
+						weekendTestDate = addDays(cloneDate(t.visStart), j);
+						
+						if(weekendTestDate.getDay() == 0 || weekendTestDate.getDay() == 6) {
+							weekendSumColStart++;
+						}
+					}
+					leftCol -= weekendSumColStart;
+					
+					if (seg.start.getDay() == 6 || seg.start.getDay() == 0) leftCol++;
+					
+					for(j=0; j<=rightCol; j++) {
+						weekendTestDate = addDays(cloneDate(t.visStart), j);
+						
+						if(weekendTestDate.getDay() == 0 || weekendTestDate.getDay() == 6) {
+							weekendSumColEnd++;
+						}
+					}
+					rightCol -= weekendSumColEnd;
+				}
+				
+				if(rightCol < 0) {
+					// end is in the next month so rightCol is the last column
+					rightCol = getColCnt()-1;
+				}
+			}
+			else if (viewName == 'resourceNextWeeks') {
+				leftCol = dateCell(seg.start).col;
+				rightCol = dateCell(seg.end).col-1;
+				if(!weekends) {
+					leftCol = dateCell(seg.start).col;
+					rightCol = dateCell(addDays(cloneDate(seg.end),-1)).col;
+					if (seg.start.getDay() == 6 || seg.start.getDay() == 0) leftCol++;
+				}
+			}
+			else if (viewName == 'resourceDay') {
+				// hack for resourceDay view
+				leftCol = timeOfDayCol(seg.start);
+				rightCol = timeOfDayCol(seg.end)-1;
+			}
+			
+			if (rtl) {
+				left = seg.isEnd ? colContentLeft(leftCol) : minLeft;
+				right = seg.isStart ? colContentRight(rightCol) : maxLeft;
+			}else{
+				left = seg.isStart ? colContentLeft(leftCol) : minLeft;
+				right = seg.isEnd ? colContentRight(rightCol) : maxLeft;
+			}
+			
 			classes = classes.concat(event.className);
 			if (event.source) {
 				classes = classes.concat(event.source.className || []);
@@ -172,7 +239,9 @@ function DayEventRenderer() {
 				" class='" + classes.join(' ') + "'" +
 				" style='position:absolute;z-index:8;left:"+left+"px;" + skinCss + "'" +
 				">" +
-				"<div class='fc-event-inner'>";
+				"<div class='fc-event-inner'" +
+				(skinCss ? " style='" + skinCss + "'" : "") +
+				">";
 			if (!event.allDay && seg.isStart) {
 				html +=
 					"<span class='fc-event-time'>" +
@@ -180,7 +249,7 @@ function DayEventRenderer() {
 					"</span>";
 			}
 			html +=
-				"<span class='fc-event-title'>" + htmlEscape(event.title) + "</span>" +
+				"<span class='fc-event-title' " + (skinCss ? " style='" + skinCss + "'" : "") + ">" + htmlEscape(event.title) + "</span>" +
 				"</div>";
 			if (seg.isEnd && isEventResizable(event)) {
 				html +=
@@ -188,6 +257,7 @@ function DayEventRenderer() {
 					"&nbsp;&nbsp;&nbsp;" + // makes hit area a lot better for IE6/7
 					"</div>";
 			}
+			
 			html +=
 				"</" + (url ? "a" : "div" ) + ">";
 			seg.left = left;
@@ -334,7 +404,7 @@ function DayEventRenderer() {
 		var rowDivs = [];
 		for (i=0; i<rowCnt; i++) {
 			rowDivs[i] = allDayRow(i)
-				.find('div.fc-day-content > div'); // optimal selector?
+				.find('td:not(.fc-resourceName):first div.fc-day-content > div'); // optimal selector?
 		}
 		return rowDivs;
 	}

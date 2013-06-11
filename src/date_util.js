@@ -45,6 +45,10 @@ function addMonths(d, n, keepTime) { // prevents day overflow/underflow
 	return d;
 }
 
+function addWeeks(d, n, keepTime) {
+	addDays(d, n * 7, keepTime);
+	return d;
+}
 
 function addDays(d, n, keepTime) { // deals with daylight savings
 	if (+d) {

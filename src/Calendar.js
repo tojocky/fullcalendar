@@ -1,6 +1,6 @@
 
  
-function Calendar(element, options, eventSources) {
+function Calendar(element, options, eventSources, resourceSources) {
 	var t = this;
 	
 	
@@ -10,6 +10,7 @@ function Calendar(element, options, eventSources) {
 	t.destroy = destroy;
 	t.refetchEvents = refetchEvents;
 	t.reportEvents = reportEvents;
+	t.refetchResources = refetchResources;
 	t.reportEventChange = reportEventChange;
 	t.rerenderEvents = rerenderEvents;
 	t.changeView = changeView;
@@ -35,6 +36,9 @@ function Calendar(element, options, eventSources) {
 	var isFetchNeeded = t.isFetchNeeded;
 	var fetchEvents = t.fetchEvents;
 	
+	// fetch resources
+	ResourceManager.call(t, options);
+	var fetchResources = t.fetchResources;
 	
 	// locals
 	var _element = element[0];
@@ -318,6 +322,7 @@ function Calendar(element, options, eventSources) {
 	function updateEvents(forceRender) {
 		if (!options.lazyFetching || isFetchNeeded(currentView.visStart, currentView.visEnd)) {
 			refetchEvents();
+			if (options['refetchResources']) refetchResources(); // refetch resources every time new events are loaded
 		}
 		else if (forceRender) {
 			rerenderEvents();
@@ -329,6 +334,25 @@ function Calendar(element, options, eventSources) {
 		fetchEvents(currentView.visStart, currentView.visEnd); // will call reportEvents
 	}
 	
+	function refetchResources() {
+		fetchResources(false, currentView);
+
+		// we have to destroy all view instances and recreate current one
+		viewInstances = [];
+		
+		// remove current view from display
+		currentView.element.remove();
+		
+		// create current view again
+		currentView = viewInstances[currentView.name] = new fcViews[currentView.name](
+					absoluteViewElement =
+						$("<div class='fc-view fc-view-" + currentView.name + "' style='position:absolute'/>")
+							.appendTo(content),
+					t // the calendar object
+				);
+		// let's render the new view		
+		renderView();
+	}
 	
 	// called when event data arrives
 	function reportEvents(_events) {
